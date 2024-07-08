@@ -2,7 +2,6 @@ import { Server } from 'socket.io';
 import {RoomService} from "../service/room.service.js";
 import {SECONDS_FOR_GAME, SECONDS_TIMER_BEFORE_START_GAME} from "./config.js";
 import {texts} from "../data.js";
-import {Room} from "../model/room.js";
 
 const roomService = new RoomService();
 let clients: string[] = []
@@ -74,7 +73,8 @@ export default (io: Server) => {
         socket.on('INIT_GAME', () => {
             const currentRoom = getCurrentRoom(socket);
             currentRoom.gameInProgress = true;
-            socket.emit('START_GAME', SECONDS_FOR_GAME)
+            socket.emit('START_GAME', SECONDS_FOR_GAME);
+            io.emit("UPDATE_ROOMS", roomService.getRooms());
         })
 
         socket.on('UPDATE_PROGRESS', (progress) => {
@@ -84,14 +84,14 @@ export default (io: Server) => {
             io.to(currentRoom.id).emit('UPDATE_CURRENT_ROOM', currentRoom);
 
             if (roomService.isAllUsersCompleted(currentRoom.id)) {
+                io.to(currentRoom.id).emit('FINISH_GAME', currentRoom)
                 roomService.finishGame(currentRoom.id);
-                socket.emit('FINISH_GAME', currentRoom)
             }
         })
 
         socket.on('GAME_TIMEOUT', () => {
             const currentRoom = getCurrentRoom(socket);
-            socket.emit('FINISH_GAME', currentRoom)
+            io.to(currentRoom.id).emit('FINISH_GAME', currentRoom)
             roomService.finishGame(currentRoom.id);
             io.to(currentRoom.id).emit('UPDATE_CURRENT_ROOM', currentRoom);
         })

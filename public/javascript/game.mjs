@@ -47,7 +47,6 @@ function updateCurrentRoom(room) {
             removeUserElement(usernameAttrVal);
             return;
         }
-        console.log(user.username)
         changeReadyStatus({username: user.username, ready: user.ready});
         setProgress({username: user.username, progress: user.progress})
     }
@@ -145,53 +144,56 @@ socket.on('START_TIMER', startTimer);
 
 function updateProgress(textToType, typedText) {
     const progress = Math.round(typedText.length * 100 / textToType.length);
-    // setProgress({username: username, progress: progress});
     socket.emit('UPDATE_PROGRESS', progress)
 }
 
-function startGame(secondsForGame) {
-    showTimer('game-timer', 5, () => socket.emit('GAME_TIMEOUT'))
-    const textToType = document.getElementById('text-container').textContent;
-    let typedText = '';
-    document.addEventListener('keydown', (event) => {
+let textToType;
+let typedText = '';
 
-        if (event.key.length === 1) {
-            let typedTextTest = typedText + event.key;
-            if (!textToType.startsWith(typedTextTest)) {
-                return;
-            }
-            typedText = typedTextTest;
+function handleKeyDown(event) {
 
-            updateProgress(textToType, typedText);
-
-            const textContainer = document.getElementById('text-container');
-            textContainer.innerHTML = '';
-
-            let correctlyTypedTextSpan = document.getElementById('correct');
-            if (!correctlyTypedTextSpan) {
-                correctlyTypedTextSpan = document.createElement('span');
-                correctlyTypedTextSpan.id = 'correct';
-            }
-            correctlyTypedTextSpan.innerText = typedText;
-            textContainer.append(correctlyTypedTextSpan);
-
-            let nextLetterSpan = document.getElementById('next');
-            if (!nextLetterSpan) {
-                nextLetterSpan = document.createElement('span');
-                nextLetterSpan.id = 'next';
-            }
-            const indexOfLastTypeCharacter = typedText.length;
-            nextLetterSpan.innerText = textToType.charAt(indexOfLastTypeCharacter);
-            textContainer.append(nextLetterSpan);
-
-            let remainingTextSpan = document.getElementById('remaining');
-            if (!remainingTextSpan) {
-                remainingTextSpan = document.createElement('span');
-            }
-            remainingTextSpan.innerText = textToType.substring(indexOfLastTypeCharacter + 1);
-            textContainer.append(remainingTextSpan);
+    if (event.key.length === 1) {
+        let typedTextTest = typedText + event.key;
+        if (!textToType.startsWith(typedTextTest)) {
+            return;
         }
-    });
+        typedText = typedTextTest;
+
+        updateProgress(textToType, typedText);
+
+        const textContainer = document.getElementById('text-container');
+        textContainer.innerHTML = '';
+
+        let correctlyTypedTextSpan = document.getElementById('correct');
+        if (!correctlyTypedTextSpan) {
+            correctlyTypedTextSpan = document.createElement('span');
+            correctlyTypedTextSpan.id = 'correct';
+        }
+        correctlyTypedTextSpan.innerText = typedText;
+        textContainer.append(correctlyTypedTextSpan);
+
+        let nextLetterSpan = document.getElementById('next');
+        if (!nextLetterSpan) {
+            nextLetterSpan = document.createElement('span');
+            nextLetterSpan.id = 'next';
+        }
+        const indexOfLastTypeCharacter = typedText.length;
+        nextLetterSpan.innerText = textToType.charAt(indexOfLastTypeCharacter);
+        textContainer.append(nextLetterSpan);
+
+        let remainingTextSpan = document.getElementById('remaining');
+        if (!remainingTextSpan) {
+            remainingTextSpan = document.createElement('span');
+        }
+        remainingTextSpan.innerText = textToType.substring(indexOfLastTypeCharacter + 1);
+        textContainer.append(remainingTextSpan);
+    }
+}
+
+function startGame(secondsForGame) {
+    showTimer('game-timer', 15, () => socket.emit('GAME_TIMEOUT'))
+    textToType = document.getElementById('text-container').textContent;
+    document.addEventListener('keydown', handleKeyDown);
 }
 
 socket.on('START_GAME', startGame)
@@ -200,8 +202,10 @@ socket.on('START_GAME', startGame)
 function finishGame(room) {
     showResultsModal({
         usersSortedArray: room.users
-            .map(user => user.username)
-            .sort((user1, user2) => user1.progress - user2.progress),
+            .sort((user1, user2) => {
+                return user1.progress - user2.progress
+            })
+            .map(user => user.username),
         onClose: () => {
         }
     });
@@ -209,6 +213,9 @@ function finishGame(room) {
     document.getElementById('ready-btn').innerText = 'READY'
     removeClass(document.getElementById('quit-room-btn'), 'display-none')
     addClass(document.getElementById('text-container'), 'display-none')
+    document.removeEventListener('keydown', handleKeyDown);
+    textToType = '';
+    typedText = '';
 }
 
 socket.on('FINISH_GAME', finishGame)
